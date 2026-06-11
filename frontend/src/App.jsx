@@ -8,6 +8,7 @@ const CLASS_INFO = {
     description: "Ornate floral and geometric patterns inspired by Mughal court art. Rich in symmetry and intricate detail.",
     color: "#C8860A",
     bg: "#FDF3DC",
+    at_risk: false,
   },
   sanganeri: {
     emoji: "🌼",
@@ -15,6 +16,7 @@ const CLASS_INFO = {
     description: "Delicate floral motifs on white or pastel backgrounds. Known for fine lines and soft color palettes.",
     color: "#2E7D5E",
     bg: "#E8F5EE",
+    at_risk: true,
   },
   kalamkari: {
     emoji: "🦚",
@@ -22,6 +24,7 @@ const CLASS_INFO = {
     description: "Hand-painted or block-printed narrative scenes from Hindu epics. Uses natural dyes on cotton.",
     color: "#7B3FA0",
     bg: "#F3E8FB",
+    at_risk: false,
   },
   gamthi: {
     emoji: "🪬",
@@ -29,8 +32,16 @@ const CLASS_INFO = {
     description: "Bold folk patterns with geometric motifs. Reflects Gujarat's vibrant tribal textile traditions.",
     color: "#C0392B",
     bg: "#FDECEA",
+    at_risk: true,
   },
 };
+
+function getConfidenceLevel(confidence) {
+  if (confidence >= 0.90) return { label: "Very High Confidence", color: "#1B8A4E", bg: "#E6F6EE", dot: "🟢" };
+  if (confidence >= 0.75) return { label: "High Confidence",      color: "#B07D0A", bg: "#FDF3DC", dot: "🟡" };
+  if (confidence >= 0.60) return { label: "Moderate Confidence",  color: "#C0602B", bg: "#FEF0E6", dot: "🟠" };
+  return                         { label: "Low Confidence",       color: "#B0241C", bg: "#FDECEA", dot: "🔴" };
+}
 
 export default function App() {
   const [file, setFile] = useState(null);
@@ -60,7 +71,7 @@ export default function App() {
     formData.append("file", file);
     setLoading(true);
     try {
-      const res = await axios.post("http://127.0.0.1:8000/predict", formData);
+      const res = await axios.post("https://sayan77-kalaai-backend.hf.space/predict", formData);
       setResult(res.data);
     } catch {
       alert("Prediction failed. Make sure the FastAPI backend is running.");
@@ -68,7 +79,9 @@ export default function App() {
     setLoading(false);
   };
 
-  const info = result ? CLASS_INFO[result.pattern.toLowerCase()] : null;
+  const info        = result ? CLASS_INFO[result.pattern.toLowerCase()] : null;
+  const confLevel   = result ? getConfidenceLevel(result.confidence)    : null;
+  const isAtRisk    = info?.at_risk ?? false;
 
   return (
     <div style={styles.page}>
@@ -86,23 +99,22 @@ export default function App() {
 
       {/* Hero */}
       <section style={styles.hero}>
-        <h1 style={styles.heroTitle}>
-          Identify Indian Block Print Traditions
-        </h1>
+        <h1 style={styles.heroTitle}>Identify Indian Block Print Traditions</h1>
         <p style={styles.heroSub}>
-          Upload a textile image — KalaAI uses a Vision Transformer (DeiT) to
-          classify the print tradition and surface its cultural story.
+          Upload a textile image — KalaAI uses a Vision Transformer (DeiT) to classify
+          the print tradition and surface its cultural story.
         </p>
       </section>
 
-      {/* Main card */}
+      {/* Main */}
       <main style={styles.main}>
-        {/* Upload zone */}
+
+        {/* Drop zone */}
         <div
           style={{
             ...styles.dropzone,
             borderColor: dragging ? "#C8860A" : "#D4C5A9",
-            background: dragging ? "#FDF3DC" : preview ? "#FAFAF8" : "#FAFAF8",
+            background:  dragging ? "#FDF3DC" : "#FAFAF8",
           }}
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
@@ -127,32 +139,30 @@ export default function App() {
           )}
         </div>
 
-        {/* Predict button */}
+        {/* Button */}
         <button
           style={{
             ...styles.btn,
             opacity: file && !loading ? 1 : 0.5,
-            cursor: file && !loading ? "pointer" : "not-allowed",
+            cursor:  file && !loading ? "pointer" : "not-allowed",
           }}
           onClick={predict}
           disabled={!file || loading}
         >
-          {loading ? (
-            <span style={styles.btnInner}>
-              <span style={styles.spinner} /> Analysing...
-            </span>
-          ) : (
-            <span style={styles.btnInner}>✦ Identify Textile</span>
-          )}
+          {loading
+            ? <span style={styles.btnInner}><span style={styles.spinner} /> Analysing...</span>
+            : <span style={styles.btnInner}>✦ Identify Textile</span>
+          }
         </button>
 
-        {/* Result */}
+        {/* Result card */}
         {result && info && (
           <div style={{ ...styles.resultCard, borderColor: info.color }}>
-            {/* Pattern name */}
+
+            {/* ── Pattern header ── */}
             <div style={{ ...styles.resultHeader, background: info.bg }}>
               <span style={styles.resultEmoji}>{info.emoji}</span>
-              <div>
+              <div style={{ flex: 1 }}>
                 <div style={{ ...styles.resultPattern, color: info.color }}>
                   {result.pattern}
                 </div>
@@ -163,10 +173,48 @@ export default function App() {
               </div>
             </div>
 
-            {/* Description */}
+            {/* ── Heritage at Risk banner ── */}
+            {isAtRisk && (
+              <div style={styles.atRiskBanner}>
+                <span style={styles.atRiskIcon}>⚠️</span>
+                <div>
+                  <div style={styles.atRiskTitle}>Heritage at Risk</div>
+                  <div style={styles.atRiskSub}>
+                    This textile tradition is endangered. Artisan communities are declining
+                    and this craft risks being lost within a generation.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Confidence level indicator ── */}
+            <div style={{ ...styles.confLevelBar, background: confLevel.bg }}>
+              <span style={styles.confDot}>{confLevel.dot}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ ...styles.confLevelLabel, color: confLevel.color }}>
+                  {confLevel.label}
+                </div>
+                <div style={styles.confLevelTrackWrap}>
+                  <div style={styles.confLevelTrack}>
+                    <div
+                      style={{
+                        ...styles.confLevelFill,
+                        width: `${(result.confidence * 100).toFixed(1)}%`,
+                        background: confLevel.color,
+                      }}
+                    />
+                  </div>
+                  <span style={{ ...styles.confLevelPct, color: confLevel.color }}>
+                    {(result.confidence * 100).toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Cultural description ── */}
             <p style={styles.resultDesc}>{info.description}</p>
 
-            {/* Confidence bars */}
+            {/* ── Class probability bars ── */}
             <div style={styles.barsLabel}>Class Probabilities</div>
             <div style={styles.bars}>
               {Object.entries(result.class_probabilities)
@@ -177,6 +225,9 @@ export default function App() {
                     <div key={cls} style={styles.barRow}>
                       <div style={styles.barName}>
                         {c.emoji} {cls.charAt(0).toUpperCase() + cls.slice(1)}
+                        {c.at_risk && (
+                          <span style={styles.inlineRisk} title="Heritage at Risk">⚠️</span>
+                        )}
                       </div>
                       <div style={styles.barTrack}>
                         <div
@@ -187,13 +238,18 @@ export default function App() {
                           }}
                         />
                       </div>
-                      <div style={styles.barPct}>
-                        {(prob * 100).toFixed(1)}%
-                      </div>
+                      <div style={styles.barPct}>{(prob * 100).toFixed(1)}%</div>
                     </div>
                   );
                 })}
             </div>
+
+            {/* ── Legend ── */}
+            <div style={styles.legend}>
+              <span style={styles.legendDot}>⚠️</span>
+              <span style={styles.legendText}>Indicates an endangered textile tradition</span>
+            </div>
+
           </div>
         )}
       </main>
@@ -221,133 +277,128 @@ const styles = {
     borderBottom: "1px solid #E0D5C5",
     background: "#FFFDF9",
   },
-  logo: { display: "flex", alignItems: "center", gap: 12 },
-  logoIcon: { fontSize: 32 },
-  logoName: { fontSize: 22, fontWeight: "bold", letterSpacing: 1 },
+  logo:    { display: "flex", alignItems: "center", gap: 12 },
+  logoIcon:{ fontSize: 32 },
+  logoName:{ fontSize: 22, fontWeight: "bold", letterSpacing: 1 },
   logoSub: { fontSize: 11, color: "#8B7355", letterSpacing: 2, textTransform: "uppercase" },
   badge: {
-    fontSize: 11,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    color: "#8B7355",
-    border: "1px solid #D4C5A9",
-    borderRadius: 20,
-    padding: "5px 14px",
+    fontSize: 11, letterSpacing: 2, textTransform: "uppercase",
+    color: "#8B7355", border: "1px solid #D4C5A9",
+    borderRadius: 20, padding: "5px 14px",
   },
   hero: {
-    textAlign: "center",
-    padding: "48px 20px 24px",
-    maxWidth: 640,
-    margin: "0 auto",
+    textAlign: "center", padding: "48px 20px 24px",
+    maxWidth: 640, margin: "0 auto",
   },
-  heroTitle: {
-    fontSize: 30,
-    fontWeight: "bold",
-    margin: "0 0 12px",
-    lineHeight: 1.3,
-  },
-  heroSub: {
-    fontSize: 15,
-    color: "#6B5A3E",
-    lineHeight: 1.7,
-    margin: 0,
-  },
+  heroTitle: { fontSize: 30, fontWeight: "bold", margin: "0 0 12px", lineHeight: 1.3 },
+  heroSub:   { fontSize: 15, color: "#6B5A3E", lineHeight: 1.7, margin: 0 },
   main: {
-    maxWidth: 600,
-    margin: "0 auto",
+    maxWidth: 600, margin: "0 auto",
     padding: "24px 20px 60px",
-    display: "flex",
-    flexDirection: "column",
-    gap: 16,
+    display: "flex", flexDirection: "column", gap: 16,
   },
   dropzone: {
-    border: "2px dashed",
-    borderRadius: 16,
-    minHeight: 220,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    overflow: "hidden",
+    border: "2px dashed", borderRadius: 16,
+    minHeight: 220, display: "flex",
+    alignItems: "center", justifyContent: "center",
+    cursor: "pointer", transition: "all 0.2s", overflow: "hidden",
   },
   uploadPrompt: { textAlign: "center", padding: 32 },
-  uploadIcon: { fontSize: 48, marginBottom: 12 },
-  uploadText: { fontSize: 16, fontWeight: "bold", marginBottom: 6 },
-  uploadHint: { fontSize: 13, color: "#8B7355" },
+  uploadIcon:   { fontSize: 48, marginBottom: 12 },
+  uploadText:   { fontSize: 16, fontWeight: "bold", marginBottom: 6 },
+  uploadHint:   { fontSize: 13, color: "#8B7355" },
   preview: { width: "100%", maxHeight: 320, objectFit: "contain", borderRadius: 14 },
   btn: {
-    width: "100%",
-    padding: "14px 0",
-    background: "#2C2416",
-    color: "#F7F3ED",
-    border: "none",
-    borderRadius: 12,
-    fontSize: 15,
-    fontFamily: "'Georgia', serif",
-    letterSpacing: 1,
-    transition: "opacity 0.2s",
+    width: "100%", padding: "14px 0",
+    background: "#2C2416", color: "#F7F3ED",
+    border: "none", borderRadius: 12,
+    fontSize: 15, fontFamily: "'Georgia', serif",
+    letterSpacing: 1, transition: "opacity 0.2s",
   },
   btnInner: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8 },
   spinner: {
-    display: "inline-block",
-    width: 14,
-    height: 14,
-    border: "2px solid #F7F3ED",
-    borderTopColor: "transparent",
-    borderRadius: "50%",
-    animation: "spin 0.8s linear infinite",
+    display: "inline-block", width: 14, height: 14,
+    border: "2px solid #F7F3ED", borderTopColor: "transparent",
+    borderRadius: "50%", animation: "spin 0.8s linear infinite",
   },
-  resultCard: {
-    border: "1.5px solid",
-    borderRadius: 16,
-    overflow: "hidden",
-    background: "#FFFDF9",
-  },
+
+  /* Result card */
+  resultCard: { border: "1.5px solid", borderRadius: 16, overflow: "hidden", background: "#FFFDF9" },
   resultHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: 14,
-    padding: "18px 20px",
+    display: "flex", alignItems: "center", gap: 14, padding: "18px 20px",
   },
-  resultEmoji: { fontSize: 36 },
+  resultEmoji:   { fontSize: 36 },
   resultPattern: { fontSize: 22, fontWeight: "bold" },
-  resultOrigin: { fontSize: 12, color: "#6B5A3E", marginTop: 2 },
+  resultOrigin:  { fontSize: 12, color: "#6B5A3E", marginTop: 2 },
   confidenceBadge: {
-    marginLeft: "auto",
-    color: "white",
-    borderRadius: 20,
-    padding: "5px 14px",
-    fontSize: 14,
-    fontWeight: "bold",
+    color: "white", borderRadius: 20,
+    padding: "5px 14px", fontSize: 14, fontWeight: "bold",
+    whiteSpace: "nowrap",
   },
+
+  /* Heritage at Risk banner */
+  atRiskBanner: {
+    display: "flex", alignItems: "flex-start", gap: 12,
+    background: "#FFF3CD", borderTop: "1px solid #F5C842",
+    borderBottom: "1px solid #F5C842", padding: "12px 20px",
+  },
+  atRiskIcon:  { fontSize: 22, marginTop: 2, flexShrink: 0 },
+  atRiskTitle: { fontSize: 14, fontWeight: "bold", color: "#7A5500", marginBottom: 3 },
+  atRiskSub:   { fontSize: 12, color: "#7A5500", lineHeight: 1.6 },
+
+  /* Confidence level bar */
+  confLevelBar: {
+    display: "flex", alignItems: "center", gap: 12,
+    padding: "12px 20px", borderBottom: "1px solid #EDE5D8",
+  },
+  confDot:           { fontSize: 18, flexShrink: 0 },
+  confLevelLabel:    { fontSize: 13, fontWeight: "bold", marginBottom: 4 },
+  confLevelTrackWrap:{ display: "flex", alignItems: "center", gap: 8 },
+  confLevelTrack: {
+    flex: 1, height: 8,
+    background: "#E0D5C5", borderRadius: 4, overflow: "hidden",
+  },
+  confLevelFill:  { height: "100%", borderRadius: 4, transition: "width 0.6s ease" },
+  confLevelPct:   { fontSize: 12, fontWeight: "bold", minWidth: 38, textAlign: "right" },
+
+  /* Description */
   resultDesc: {
-    padding: "0 20px 16px",
-    fontSize: 14,
-    color: "#4A3C2A",
-    lineHeight: 1.7,
-    borderBottom: "1px solid #EDE5D8",
-    margin: 0,
+    padding: "14px 20px 14px",
+    fontSize: 14, color: "#4A3C2A", lineHeight: 1.7,
+    borderBottom: "1px solid #EDE5D8", margin: 0,
   },
+
+  /* Probability bars */
   barsLabel: {
     padding: "14px 20px 8px",
-    fontSize: 11,
-    letterSpacing: 2,
-    textTransform: "uppercase",
-    color: "#8B7355",
+    fontSize: 11, letterSpacing: 2,
+    textTransform: "uppercase", color: "#8B7355",
   },
-  bars: { padding: "0 20px 20px", display: "flex", flexDirection: "column", gap: 10 },
+  bars:   { padding: "0 20px 16px", display: "flex", flexDirection: "column", gap: 10 },
   barRow: { display: "flex", alignItems: "center", gap: 10 },
-  barName: { width: 110, fontSize: 13 },
-  barTrack: { flex: 1, height: 8, background: "#EDE5D8", borderRadius: 4, overflow: "hidden" },
-  barFill: { height: "100%", borderRadius: 4, transition: "width 0.6s ease" },
-  barPct: { width: 42, fontSize: 12, color: "#6B5A3E", textAlign: "right" },
+  barName:{ width: 120, fontSize: 13, display: "flex", alignItems: "center", gap: 4 },
+  barTrack: {
+    flex: 1, height: 8,
+    background: "#EDE5D8", borderRadius: 4, overflow: "hidden",
+  },
+  barFill:  { height: "100%", borderRadius: 4, transition: "width 0.6s ease" },
+  barPct:   { width: 42, fontSize: 12, color: "#6B5A3E", textAlign: "right" },
+  inlineRisk: { fontSize: 11, marginLeft: 2 },
+
+  /* Legend */
+  legend: {
+    display: "flex", alignItems: "center", gap: 6,
+    padding: "10px 20px 16px",
+    fontSize: 11, color: "#8B7355",
+    borderTop: "1px solid #EDE5D8",
+  },
+  legendDot:  { fontSize: 12 },
+  legendText: { fontSize: 11, color: "#8B7355" },
+
+  /* Footer */
   footer: {
-    textAlign: "center",
-    padding: "20px",
-    fontSize: 12,
-    color: "#8B7355",
-    borderTop: "1px solid #E0D5C5",
-    letterSpacing: 0.5,
+    textAlign: "center", padding: "20px",
+    fontSize: 12, color: "#8B7355",
+    borderTop: "1px solid #E0D5C5", letterSpacing: 0.5,
   },
 };
